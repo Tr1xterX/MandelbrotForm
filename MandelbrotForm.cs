@@ -13,31 +13,35 @@ namespace FractalTraveler
     public partial class MandelbrotForm : Form
     {
         public double wx = 0, wy = 0; //коорд смещ
-        public double speed = 2f, zoom = 2f, zoomSpeed = 0.001d;
+        public double speed = 2f, zoom = 2f, zoomSpeed = 0.005d;
         public int res = 5; //разрешение для изменения качества и скорости вычисления
 
-        private void Form1_KeyDown(object sender, KeyEventArgs e) //управление
+        private async void Form1_KeyDown(object sender, KeyEventArgs e) //управление
         {
             //разрешение
             if (e.KeyCode == Keys.Q)
             {
-                res -= 1;
+                if (res <= 1)
+                {
+                    res = 1;
+                }
+                else res -= 1;
             }
             if (e.KeyCode == Keys.E)
             {
                 res += 1;
             }
-            
+
             //зум
             if (e.KeyCode == Keys.PageUp)
             {
                 zoom -= zoomSpeed / zoom;
-                Draw();
+                await DrawAsync();
             }
             if (e.KeyCode == Keys.PageDown)
             {
                 zoom += zoomSpeed / zoom;
-                Draw();
+                await DrawAsync();
             }
 
             //перемещение
@@ -62,102 +66,155 @@ namespace FractalTraveler
             //
             if (e.KeyCode == Keys.Space)
             {
-                timer1.Stop();
-                Draw();
+                await DrawAsync();
             }
         }
 
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            zoom -= zoomSpeed / zoom;
-            Draw();
-        }
-
-    
         public MandelbrotForm()
         {
             InitializeComponent();
+            
+        }
+        private void UpdateParametersLabel()
+        {
+            parametersLabel.Text = $"Zoom: {zoom}\n" +
+                                   $"Zoom Speed: {zoomSpeed}\n" +                     
+                                   $"Resolution: {res}\n" +
+                                   $"Wx: {wx}\n" +
+                                   $"Wy: {wy}";
         }
 
-        private void Form1_Load(object sender, EventArgs e)
+        private async void Timer1_TickAsync(object sender, EventArgs e)
         {
-            Draw();
+            zoom -= zoomSpeed / zoom;
+            await DrawAsync();
+            UpdateParametersLabel();
         }
 
-
-        public void Draw()
+        private async void Form1_Load(object sender, EventArgs e)
         {
+            await DrawAsync();
+        }
+
+        public async Task DrawAsync()
+        {
+            int width = Width / res;
+            int height = Height / res;
+
             if (res <= 0)
             {
                 res = 1;
             }
 
-            Bitmap frame = new Bitmap(Width / res, Height / res);
-            for (int x = 0; x < Width/res; x++)
+            Bitmap frame = new Bitmap(width, height);
+            Color[,] pixels = new Color[width, height];
+
+            await Task.Run(() =>
             {
-                for (int y = 0; y < Height/res; y++)
+                Parallel.For(0, width, x =>
                 {
-                    double a = (double)((x + (wx / res / zoom)) - ((Width / 2d) / res)) / (double)(Width / zoom / res / 1.777f); // 16/9 = 1.77 - разрешение
-                    double b = (double)((y + (wy / res / zoom)) - ((Height / 2d) / res)) / (double)(Height / zoom / res);
-
-                    ComplexNum c = new ComplexNum(a, b); //указ коорд
-                    ComplexNum z = new ComplexNum(0, 0); //z - отображение
-
-
-                    int it = 0;
-                    
-                    //цикл отрисовки до магнитуды в 2 или в 100 итераций 
-                    do
+                    for (int y = 0; y < height; y++)
                     {
-                        it++;
-                        z.Sqr();
-                        z.Add(c);
-                        if (z.Magn() > 2.0d)
+                        double a = (double)((x + (wx / res / zoom)) - ((Width / 2d) / res)) / (double)(Width / zoom / res / 1.777f); // 16/9 = 1.77 - разрешение
+                        double b = (double)((y + (wy / res / zoom)) - ((Height / 2d) / res)) / (double)(Height / zoom / res);
+
+                        ComplexNum c = new ComplexNum(a, b); //указ коорд
+                        ComplexNum z = new ComplexNum(0, 0); //z - отображение
+
+                        int it = 0;
+
+                        do
                         {
-                            break;
-                        }
-                    } while (it < 100);
+                            it++;
+                            z.Sqr();
+                            z.Add(c);
+                            if (z.Magn() > 2.0d)
+                            {
+                                break;
+                            }
+                        } while (it < 100);
 
+                        pixels[x, y] = Color.FromArgb((byte)(it * 2.55f), (byte)(it * 2.55f), (byte)(it * 2.55f));
+                    }
+                });
+            });
 
-                    frame.SetPixel(x, y, Color.FromArgb((byte)(it * 2.55f), (byte)(it * 2.55f), (byte)(it * 2.55f)));
+            // Применяем массив пикселей к объекту frame
+            for (int x = 0; x < width; x++)
+            {
+                for (int y = 0; y < height; y++)
+                {
+                    frame.SetPixel(x, y, pixels[x, y]);
                 }
             }
 
             pictureBox1.Image = frame;
             pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
         }
+
+
+        public class ComplexNum
+        {
+            public double a;
+            public double b;
+
+            public ComplexNum(double a, double b)
+            {
+                this.a = a;
+                this.b = b;
+            }
+
+            public void Sqr()
+            {
+                double tmp = (a * a) - (b * b);
+                b = 2.0d * a * b;
+                a = tmp;
+            }
+
+            public double Magn()
+            {
+                return Math.Sqrt((a * a) + (b * b));
+            }
+
+            public void Add(ComplexNum c)
+            {
+                a += c.a;
+                b += c.b;
+            }
+        }
+
+        /*
+        public class ComplexNumber
+        {
+            public double x;
+            public double y;
+
+            public ComplexNumber(double x, double y)
+            {
+                this.x = x;
+                this.y = y;
+            }
+
+            public static ComplexNumber operator+(ComplexNumber a, ComplexNumber b)
+            {
+                var temp = new ComplexNumber(0, 0)
+                {
+                    x = a.x + b.x,
+                    y = a.y + b.y
+                };
+                return temp;
+            }
+
+            public static ComplexNumber operator*(ComplexNumber a, ComplexNumber b)
+            {
+                var temp = new ComplexNumber(0, 0)
+                {
+                    x = (a.x * b.x) - a.y * b.y,
+                    y = (a.x * b.y) + a.y * b.x
+                };
+                return temp;
+            }
+        }
+        */
     }
-
-
-
-    public class ComplexNum {
-        public double a;
-        public double b;
-
-        public ComplexNum(double a, double b)
-        {
-            this.a = a;
-            this.b = b;
-        }
-
-        public void Sqr()
-        {
-            double tmp = (a * a) - (b * b);
-            b = 2.0d * a * b;
-            a = tmp;
-        }
-
-        public double Magn()
-        {
-            return Math.Sqrt((a * a) + (b * b));
-        }
-
-        public void Add(ComplexNum c)
-        {
-            a += c.a;
-            b += c.b;
-        }
-        
-    }
-
 }
