@@ -45,12 +45,6 @@
             this.pictureBox1.TabIndex = 0;
             this.pictureBox1.TabStop = false;
             // 
-            // timer1
-            // 
-            this.timer1.Enabled = true;
-            this.timer1.Interval = 1;
-            this.timer1.Tick += new System.EventHandler(this.Timer1_TickAsync);
-            // 
             // parametersLabel
             // 
             this.parametersLabel.AutoSize = true;

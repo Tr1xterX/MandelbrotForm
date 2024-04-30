@@ -13,59 +13,97 @@ namespace FractalTraveler
     public partial class MandelbrotForm : Form
     {
         public double wx = 0, wy = 0; //коорд смещ
-        public double speed = 2f, zoom = 2f, zoomSpeed = 0.005d;
-        public int res = 5; //разрешение для изменения качества и скорости вычисления
+        public double step = 2f, zoom = 2f, zoomStep = 0.1d; 
+        public int res = 3; //разрешение для изменения качества и скорости вычисления
 
         private async void Form1_KeyDown(object sender, KeyEventArgs e) //управление
         {
+
             //разрешение
-            if (e.KeyCode == Keys.Q)
+            if (e.KeyCode == Keys.R)
             {
                 if (res <= 1)
                 {
                     res = 1;
+                    await DrawAsync();
                 }
-                else res -= 1;
+                else { res -= 1; await DrawAsync(); }
             }
-            if (e.KeyCode == Keys.E)
+            if (e.KeyCode == Keys.T)
             {
                 res += 1;
             }
 
-            //зум
-            if (e.KeyCode == Keys.PageUp)
+            //Zoom
+            if (e.KeyCode == Keys.E)
             {
-                zoom -= zoomSpeed / zoom;
-                await DrawAsync();
+                double newZoom = zoom - zoomStep;
+                if (newZoom > 0) // Проверяем, чтобы новое значение zoom было положительным
+                {
+                    zoom = newZoom;
+                    zoomStep = CalculateZoomStep(zoom);
+                    await DrawAsync();
+                }
             }
-            if (e.KeyCode == Keys.PageDown)
+            if (e.KeyCode == Keys.Q)
             {
-                zoom += zoomSpeed / zoom;
+                zoom += zoomStep;
+                zoomStep = CalculateZoomStep(zoom);
                 await DrawAsync();
             }
 
             //перемещение
-            if (e.KeyCode == Keys.Up)
+            if (e.KeyCode == Keys.W)
             {
-                wy -= speed * (5 - Math.Abs(zoom));
+                wy -= step * (Math.Abs(zoom)*3);
+                await DrawAsync();
             }
-            if (e.KeyCode == Keys.Down)
+            if (e.KeyCode == Keys.S)
             {
-                wy += speed * (5 - Math.Abs(zoom));
-            }
-
-            if (e.KeyCode == Keys.Left)
-            {
-                wx -= speed * (5 - Math.Abs(zoom));
-            }
-            if (e.KeyCode == Keys.Right)
-            {
-                wx += speed * (5 - Math.Abs(zoom));
+                wy += step * (Math.Abs(zoom)*3);
+                await DrawAsync();
             }
 
-            //
-            if (e.KeyCode == Keys.Space)
+            if (e.KeyCode == Keys.A)
             {
+                wx -= step * (Math.Abs(zoom)*3);
+                await DrawAsync();
+            }
+            if (e.KeyCode == Keys.D)
+            {
+                wx += step * (Math.Abs(zoom)*3);
+                await DrawAsync();
+            }
+
+            UpdateParametersLabel();
+        }
+
+        // Метод для вычисления нового zoomStep с использованием логарифмической зависимости
+        private double CalculateZoomStep(double zoom)
+        {
+            double minZoomStep = 0.0001;
+            double maxZoomStep = 0.1;
+
+            // Масштабирование zoom для приведения его к более удобному диапазону значений
+            double scaledZoom = Math.Log(zoom + 1);
+
+            // Определение нового значения zoomStep на основе логарифмической зависимости от scaledZoom
+            double newZoomStep = minZoomStep + (maxZoomStep - minZoomStep) * (1 - Math.Pow(Math.E, -scaledZoom));
+
+            return newZoomStep;
+            //натуральный логарифм Math.Log, медленнее изменять scaledZoom с увеличением zoom
+        }
+
+        private async void Form1_MouseDown(object sender, MouseEventArgs e)
+        {
+            if (e.Button == MouseButtons.Left)
+            {
+                zoom -= zoomStep;
+                await DrawAsync();
+            }
+            else if (e.Button == MouseButtons.Right)
+            {
+                zoom += zoomStep;
                 await DrawAsync();
             }
         }
@@ -73,31 +111,31 @@ namespace FractalTraveler
         public MandelbrotForm()
         {
             InitializeComponent();
-            
+            this.MouseDown += Form1_MouseDown;
+
         }
         private void UpdateParametersLabel()
         {
             parametersLabel.Text = $"Zoom: {zoom}\n" +
-                                   $"Zoom Speed: {zoomSpeed}\n" +                     
+                                   $"Zoom Step: {zoomStep}\n" +
                                    $"Resolution: {res}\n" +
-                                   $"Wx: {wx}\n" +
-                                   $"Wy: {wy}";
-        }
-
-        private async void Timer1_TickAsync(object sender, EventArgs e)
-        {
-            zoom -= zoomSpeed / zoom;
-            await DrawAsync();
-            UpdateParametersLabel();
+                                   $"X: {wx}\n" +
+                                   $"Y: {wy}\n" +
+                                   $"Step: {step}\n"+
+                                   $"CalculateZoomStep: {CalculateZoomStep(zoom)}\n";
         }
 
         private async void Form1_Load(object sender, EventArgs e)
         {
             await DrawAsync();
+            UpdateParametersLabel();
         }
 
         public async Task DrawAsync()
         {
+            // Проверяем, была ли нажата клавиша управления
+           
+
             int width = Width / res;
             int height = Height / res;
 
@@ -182,7 +220,8 @@ namespace FractalTraveler
                 b += c.b;
             }
         }
-
+    }
+}
         /*
         public class ComplexNumber
         {
@@ -216,5 +255,3 @@ namespace FractalTraveler
             }
         }
         */
-    }
-}
